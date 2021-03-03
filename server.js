@@ -3,9 +3,11 @@
 const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
+const superagent = require('superagent');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const GEOCODE_API_KEY = process.env.GEOCODE_API_KEY;
 app.use(cors());
 
 
@@ -14,10 +16,17 @@ app.get('/weather', handleWeather);
 
 
 function handleLocation(req, res) {
-  const jsonArrayNew = require('./data/location.json');
-  const jsonObjectNew = jsonArrayNew[0];
+  // const jsonArrayNew = require('./data/location.json');
+  // const jsonObjectNew = jsonArrayNew[0];
   const queryResult = req.query.city;
-  res.send(new Location(queryResult, jsonObjectNew));
+  const url = `https://us1.locationiq.com/v1/search.php?key=${GEOCODE_API_KEY}&q=${queryResult}&format=json`;
+
+  superagent.get(url)
+    .then(results => {
+      res.send(new Location(queryResult, results.body[0]));
+
+    })
+
 }
 
 function Location(cityObj, jsonArray) {
@@ -30,12 +39,17 @@ function handleWeather(req, res) {
   const jsonWeatherArray = require('./data/weather.json');
   // const weatherObjLat = req.query.latitude;
   // const weatherObjLon = req.query.longitude;
-  const weatherArray = [];
-  console.log(jsonWeatherArray);
-  for (let i = 0; i < jsonWeatherArray.data.length; i++) {
-    console.log('testing');
-    weatherArray.push(new Weather(jsonWeatherArray.data[i]));
-  }
+
+  // const weatherArray = [];
+  // console.log(jsonWeatherArray);
+  // for (let i = 0; i < jsonWeatherArray.data.length; i++) {
+  //   console.log('testing');
+  //   weatherArray.push(new Weather(jsonWeatherArray.data[i]));
+  // }
+  const weatherArray = jsonWeatherArray.data.map(value => {
+    return new Weather(value);
+  });
+
   res.send(weatherArray);
 }
 function Weather(weatherObj) {
