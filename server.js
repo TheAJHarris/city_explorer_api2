@@ -8,6 +8,7 @@ const superagent = require('superagent');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const GEOCODE_API_KEY = process.env.GEOCODE_API_KEY;
+const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 app.use(cors());
 
 
@@ -36,9 +37,10 @@ function Location(cityObj, jsonArray) {
   this.longitude = jsonArray.lon;
 }
 function handleWeather(req, res) {
-  const jsonWeatherArray = require('./data/weather.json');
-  // const weatherObjLat = req.query.latitude;
-  // const weatherObjLon = req.query.longitude;
+  // const jsonWeatherArray = require('./data/weather.json');
+  const weatherObjName = req.query.search_query;
+
+  const weatherURL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${weatherObjName}&key=${WEATHER_API_KEY}`;
 
   // const weatherArray = [];
   // console.log(jsonWeatherArray);
@@ -46,16 +48,21 @@ function handleWeather(req, res) {
   //   console.log('testing');
   //   weatherArray.push(new Weather(jsonWeatherArray.data[i]));
   // }
-  const weatherArray = jsonWeatherArray.data.map(value => {
-    return new Weather(value);
-  });
 
-  res.send(weatherArray);
+  superagent.get(weatherURL)
+    .then(weatherResults => {
+      const weatherArray = weatherResults.body.data.map(value => {
+        return new Weather(value);
+      });
+
+      res.send(weatherArray);
+    });
 }
 function Weather(weatherObj) {
   this.forecast = weatherObj.weather.description;
   this.time = weatherObj.datetime;
 }
+
 
 
 
