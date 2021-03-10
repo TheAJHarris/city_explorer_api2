@@ -4,6 +4,11 @@ const express = require('express');
 require('dotenv').config();
 const cors = require('cors');
 const superagent = require('superagent');
+const pg = require('pg');
+const { response } = require('express');
+const client = new pg.Client(process.env.DATABASE_URL);
+client.on('error', error => console.log(error));
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,14 +24,33 @@ app.get('/weather', handleWeather);
 function handleLocation(req, res) {
   // const jsonArrayNew = require('./data/location.json');
   // const jsonObjectNew = jsonArrayNew[0];
+
   const queryResult = req.query.city;
-  const url = `https://us1.locationiq.com/v1/search.php?key=${GEOCODE_API_KEY}&q=${queryResult}&format=json`;
+  const sqlString = 'SELECT * FROM locations WHERE search_query=$1';
+  const sqlArray = [queryResult];
+  client.query(sqlString, sqlArray)
+    .then(whatCameBack => {
+      console.log('databaseResults', whatCameBack);
+      if (whatCameBack.rows.length > 0) {
+        console.log('found it in the DB');
+        res.send(whatCameBack.rows[0]);
+      }
+      else {
+        console.log('didnt find it');
+        const url = `https://us1.locationiq.com/v1/search.php?key=${GEOCODE_API_KEY}&q=${queryResult}&format=json`;
 
-  superagent.get(url)
-    .then(results => {
-      res.send(new Location(queryResult, results.body[0]));
+        superagent.get(url)
+          .then(results => {
+            const location = new Location(queryResult, results.body[0]);
+            const newSqlString = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4)';
+            const newSqlArray = [location.search_query, location.formatted_query, location.latitude, location.longitude];
+            client.query(newSqlString, newSqlArray);
+            res.send(location);
+          });
+      
+      }
+    });
 
-    })
 
 }
 
@@ -70,5 +94,7 @@ function Weather(weatherObj) {
 
 
 
-
-app.listen(PORT, () => console.log(`app is up on port http://localhost:${PORT}`));
+client.connect()
+  .then(() => {
+    app.listen(PORT, () => console.log(`app is up on port http://localhost:${PORT}`));
+  });
